@@ -1,67 +1,81 @@
 import Groq from "groq-sdk";
 import { tavily } from "@tavily/core";
 
-import * as readline from 'node:readline/promises';
-import { stdin as input, stdout as output } from 'node:process';
-
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 const tvly = tavily({ apiKey: process.env.TAVILY_API_KEY });
 
-async function callGroq() {
 
-    const rl = readline.createInterface({ input, output });
+export async function callGroq(userMessage) {
 
-    
-    // let isToolUsed=false
 
   const messages = [
-    // Set an optional system message. This sets the behavior of the
-    // assistant and can be used to provide specific instructions for
-    // how it should behave throughout the conversation.
     {
       role: "system",
-      content: `You are a helpful personal assistant. Your name is MakeEasy Agent. Santosh Sharma developed you.
-      If you need current date and time use it from here:
-      Current Date and time: ${new Date().toUTCString()}  
-      If you need realtime data, use the webSearch tool.
+      content: `You are a helpful AI assistant named MakeEasy Agent, developed by Santosh Sharma.
+
+          You should help users by answering questions clearly and accurately.
+
+          Current Date and Time (UTC):
+          ${new Date().toUTCString()}
+
+          Use this date/time whenever a user asks about current time, today’s date, or anything related to the current day. Do NOT use the webSearch tool for this.
+
+          -------------------------
+          TOOL USAGE RULES
+          -------------------------
+
+          You have access to a tool called "webSearch" that can retrieve real-time information from the internet.
+
+          Use the webSearch tool ONLY when the user asks for information that:
+          1. Requires real-time or latest data
+          2. Cannot be answered reliably from general knowledge
+          3. Includes terms like:
+            - "today"
+            - "latest"
+            - "current"
+            - "recent"
+            - "news"
+            - "price"
+            - "weather"
+            - "live"
+
+          Examples where you SHOULD use webSearch:
+          - "What is the weather in Kathmandu today?"
+          - "Latest news about artificial intelligence"
+          - "Current price of Bitcoin"
+          - "Who won the football match today?"
+
+          Examples where you SHOULD NOT use webSearch:
+          - "Explain what artificial intelligence is"
+          - "Write a JavaScript function to sort an array"
+          - "Who invented the telephone?"
+          - "What is the capital of Japan?"
+
+          -------------------------
+          IMPORTANT RULES
+          -------------------------
+
+          1. If the question can be answered using your general knowledge, DO NOT use any tool.
+          2. Only call the webSearch tool when real-time or latest information is required.
+          3. After receiving the tool result, generate the final answer for the user.
+          4. Do NOT show tool calls, function names, or tool JSON in the final response.
+          5. Always respond with a clean, human-readable answer.
+
+          If a tool is used:
+          - Use it when necessary.
+          - After receiving the result, produce the final answer.
         `,
     },
-    // Set a user message for the assistant to respond to.
-    //keeping question from cli
-    // {
-    //   role: "user",
-    //   content: `Give me the current weather in Kathmandu Nepal.
-    //     Respond in this JSON format:
-    //     {
-    //         "city": "string",
-    //         "temperature": "string",
-    //         "condition": "string",
-    //         "humidity": "string"
-    //     }`,
-    // },
   ];
-
-  while(true){
-
-    const question = await rl.question('You: ');
-
-    // exit : exit program
-    if(question=="exit"){
-        break;
-    }
 
     messages.push({
         role:'user',
-        content:question
+        content:userMessage
     })
 
     while (true) {
     const chatCompletion = await groq.chat.completions.create({
       temperature: 0.5,
-      // response_format:{
-      //     type:"json_object",
-      // },
-    //   tools: isToolUsed?undefined:[
     tools:[
         {
           type: "function",
@@ -86,17 +100,13 @@ async function callGroq() {
       model: "llama-3.3-70b-versatile",
       tool_choice: "auto",
     });
-    // Print the completion returned by the LLM.
-    //   console.log(chatCompletion.choices[0]?.message?.content || "");
-    //got response from LLM after asking for the frst time, like Assistant says use tool
-    //need to add that msg also in messages
     const assistantMessage = chatCompletion.choices[0].message;
     messages.push(assistantMessage);
     //after adding Assistant message: after first call to LLM then we will call tool:function
     const toolCalls = chatCompletion.choices[0].message.tool_calls;
     if (!toolCalls) {
-      console.log(chatCompletion.choices[0].message.content);
-      break;
+    //   console.log(chatCompletion.choices[0].message.content);
+    return chatCompletion.choices[0].message.content
     }
     for (const tool of toolCalls) {
       // console.log("Tool: ",tool)
@@ -115,16 +125,12 @@ async function callGroq() {
         });
       }
     }
-    // isToolUsed=true
   }
-  }
-  rl.close();
+  
 }
 
 async function webSearch({ query }) {
   console.log("Web Search is taking place......with query: ", query);
-  // return "okay"
-  //Searching on web using tavily
   const response = await tvly.search(query);
   // console.log("Tool Result: ",response.results);
   const refinedResult = response.results
@@ -134,4 +140,4 @@ async function webSearch({ query }) {
   return refinedResult;
 }
 
-callGroq();
+// callGroq(); // will call this from server

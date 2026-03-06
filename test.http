@@ -1,0 +1,10 @@
+###
+GET http://localhost:3001/
+
+###
+POST http://localhost:3001/chat
+Content-Type: application/json
+
+{
+    "message":"hello"
+}
