@@ -2,6 +2,8 @@ const input = document.querySelector("#input");
 const chatContainer = document.querySelector("#chat-container");
 const askBtn = document.querySelector("#ask");
 
+const threadId= Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+
 input.addEventListener("keyup", handleEnter);
 askBtn.addEventListener("click", handleAsk);
 
@@ -33,7 +35,8 @@ async function generate(text) {
 
 //showing loading state: before displaying ai response
 chatContainer.appendChild(loading)
-
+askBtn.disabled = true
+askBtn.style.cursor = "not-allowed"
 const assistantMessage=await callServer(text)
 // console.log("Assistant Message: ",assistantMessage)
 
@@ -44,6 +47,8 @@ const assistantMsgElem = document.createElement("div");
   assistantMsgElem.textContent = assistantMessage;
   // removing thnking after getting response from ai
   loading.remove()
+  askBtn.disabled = true
+askBtn.style.cursor = "not-allowed"
   chatContainer.appendChild(assistantMsgElem);
 }
 
@@ -53,7 +58,7 @@ async function callServer(inputText){
         headers:{
             'content-type':'application/json',
         },
-        body:JSON.stringify({message:inputText})
+        body:JSON.stringify({threadId,message:inputText})
     })
     if(!response.ok){
         throw new Error("Error generating the response.")
@@ -66,7 +71,6 @@ async function callServer(inputText){
 async function handleAsk(e) {
   const text = input.value.trim();
   if (!text) return;
-
   await generate(text);
 }
 async function handleEnter(e) {

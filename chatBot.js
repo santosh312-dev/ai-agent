@@ -1,14 +1,14 @@
 import Groq from "groq-sdk";
 import { tavily } from "@tavily/core";
+import NodeCache from "node-cache";
 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 const tvly = tavily({ apiKey: process.env.TAVILY_API_KEY });
 
+const cache = new NodeCache({ stdTTL: 60 * 60 * 24 }); //24 hours
 
-export async function callGroq(userMessage) {
-
-
-  const messages = [
+export async function callGroq(userMessage, threadId) {
+  const baseMessages = [
     {
       role: "system",
       content: `You are a helpful AI assistant named MakeEasy Agent, developed by Santosh Sharma.
@@ -68,15 +68,24 @@ export async function callGroq(userMessage) {
     },
   ];
 
-    messages.push({
-        role:'user',
-        content:userMessage
-    })
+  const messages = cache.get(threadId) ?? baseMessages;
 
-    while (true) {
+  messages.push({
+    role: "user",
+    content: userMessage,
+  });
+
+  const MAX_RETRIES = 10;
+  let count = 0;
+
+  while (true) {
+    if (count > MAX_RETRIES) {
+      return "I could not find the result, please try again";
+    }
+    count++;
     const chatCompletion = await groq.chat.completions.create({
       temperature: 0.5,
-    tools:[
+      tools: [
         {
           type: "function",
           function: {
@@ -105,8 +114,11 @@ export async function callGroq(userMessage) {
     //after adding Assistant message: after first call to LLM then we will call tool:function
     const toolCalls = chatCompletion.choices[0].message.tool_calls;
     if (!toolCalls) {
-    //   console.log(chatCompletion.choices[0].message.content);
-    return chatCompletion.choices[0].message.content
+      //here we end the chatBot response
+      cache.set(threadId, messages);
+      // console.log(cache)
+      //   console.log(chatCompletion.choices[0].message.content);
+      return chatCompletion.choices[0].message.content;
     }
     for (const tool of toolCalls) {
       // console.log("Tool: ",tool)
@@ -126,7 +138,6 @@ export async function callGroq(userMessage) {
       }
     }
   }
-  
 }
 
 async function webSearch({ query }) {
